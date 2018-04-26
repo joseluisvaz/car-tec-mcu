@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "String.h"
-#include "std_msgs/Int32.h"
+#include "std_msgs/Float32MultiArray.h"
 #include "S32K148.h"
 #include "ros.h"
 
@@ -14,7 +14,7 @@ extern "C" void __cxa_pure_virtual(void);
 void __cxa_pure_virtual(void) {}
 
 // Function prototypes
-void message_callback(const std_msgs::Int32 &msg);
+void callback(const std_msgs::Float32MultiArray &msg);
 
 // Provisional test function prototypes
 void init_led(void);
@@ -32,10 +32,10 @@ int main() {
   init_led();
 
   ros::NodeHandle nh;
-  ros::Subscriber<std_msgs::Int32> sub("/board_connection/test", &message_callback);
+  ros::Subscriber<std_msgs::Float32MultiArray> sub("/board_connection/control_array", &callback);
 
   std_msgs::String str_msg;
-  pub.topic_ = "/mcu/chatter";
+  pub.topic_ = "/mcu/position";
   pub.msg_ = &str_msg;
 
   nh.initNode();
@@ -54,13 +54,18 @@ int main() {
   return 0;
 }
 
-void message_callback(const std_msgs::Int32 &msg) {
+void callback(const std_msgs::Float32MultiArray &msg) {
   std_msgs::String str_msg;
-  if(msg.data > 30.0) {
+
+  int control_signal_theta = msg.data[0];
+  int control_signal_phi = msg.data[1];
+
+  if(control_signal_phi > 30.0) {
     str_msg.data = "h";
 	led_toggle();
 	pub.publish(&str_msg);
   }
+
 }
 
 void init_led(void){

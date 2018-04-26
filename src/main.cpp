@@ -55,24 +55,24 @@ int main() {
 }
 
 void message_callback(const std_msgs::Int32 &msg) {
-	std_msgs::String str_msg;
-	if(msg.data > 30.0) {
-		str_msg.data = "h";
-		led_toggle();
-		pub.publish(&str_msg);
-	}
+  std_msgs::String str_msg;
+  if(msg.data > 30.0) {
+    str_msg.data = "h";
+	led_toggle();
+	pub.publish(&str_msg);
+  }
 }
 
 void init_led(void){
-	PCC->PCCn[PCC_PORTE_INDEX] = PCC_PCCn_CGC(1);
-	PORTE->PCR[22] = PORT_PCR_MUX(0b001);	//Port E23: MUX = GPIO
-	PTE->PDDR |= 0b1<<22;					//PortE 21-23: Data direction = output
+  PCC->PCCn[PCC_PORTE_INDEX] = PCC_PCCn_CGC(1);
+  PORTE->PCR[22] = PORT_PCR_MUX(0b001);	//Port E23: MUX = GPIO
+  PTE->PDDR |= 0b1<<22;					//PortE 21-23: Data direction = output
 }
 
 void led_on(void) {
-	PTE->PSOR |= 1<<22;
+  PTE->PSOR |= 1<<22;
 }
 
 void led_toggle(void) {
-    PTE->PTOR |= 1<<22;
+  PTE->PTOR |= 1<<22;
 }

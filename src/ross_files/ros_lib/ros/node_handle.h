@@ -72,12 +72,12 @@
 
 namespace ros {
 
-  class NodeHandleBase_{
+  class NodeHandleBase_ {
     public:
       virtual int publish(int id, const Msg* msg)=0;
       virtual int spinOnce()=0;
       virtual bool connected()=0;
-    };
+  };
 }
 
 #include "ros/publisher.h"
@@ -95,8 +95,8 @@ namespace ros {
            int MAX_PUBLISHERS=25,
            int INPUT_SIZE=512,
            int OUTPUT_SIZE=512>
-  class NodeHandle_ : public NodeHandleBase_
-  {
+  class NodeHandle_ : public NodeHandleBase_ {
+
     protected:
       Hardware hardware_;
 
@@ -118,32 +118,32 @@ namespace ros {
     public:
       NodeHandle_() : configured_(false) {
 
-        for(unsigned int i=0; i< MAX_PUBLISHERS; i++)
-	   publishers[i] = 0;
+      for(unsigned int i=0; i< MAX_PUBLISHERS; i++)
+	    publishers[i] = 0;
 
-        for(unsigned int i=0; i< MAX_SUBSCRIBERS; i++)
-	   subscribers[i] = 0;
+      for(unsigned int i=0; i< MAX_SUBSCRIBERS; i++)
+	    subscribers[i] = 0;
 
-        for(unsigned int i=0; i< INPUT_SIZE; i++)
-	   message_in[i] = 0;
+      for(unsigned int i=0; i< INPUT_SIZE; i++)
+	    message_in[i] = 0;
 
-        for(unsigned int i=0; i< OUTPUT_SIZE; i++)
-	   message_out[i] = 0;
+      for(unsigned int i=0; i< OUTPUT_SIZE; i++)
+	    message_out[i] = 0;
 
-        req_param_resp.ints_length = 0;
-        req_param_resp.ints = NULL;
-        req_param_resp.floats_length = 0;
-        req_param_resp.floats = NULL;
-        req_param_resp.ints_length = 0;
-        req_param_resp.ints = NULL;
+      req_param_resp.ints_length = 0;
+      req_param_resp.ints = NULL;
+      req_param_resp.floats_length = 0;
+      req_param_resp.floats = NULL;
+      req_param_resp.ints_length = 0;
+      req_param_resp.ints = NULL;
       }
 
-      Hardware* getHardware(){
+      Hardware* getHardware() {
         return &hardware_;
       }
 
       /* Start serial, initialize buffers */
-      void initNode(){
+      void initNode() {
         hardware_.init();
         mode_ = 0;
         bytes_ = 0;
@@ -152,7 +152,7 @@ namespace ros {
       };
 
       /* Start a named port, which may be network server IP, initialize buffers */
-      void initNode(char *portName){
+      void initNode(char *portName) {
         hardware_.init(portName);
         mode_ = 0;
         bytes_ = 0;
@@ -176,96 +176,123 @@ namespace ros {
       uint32_t last_msg_timeout_time;
 
     public:
+
       /* This function goes in your loop() function, it handles
        *  serial input and callbacks for subscribers.
        */
-
-
       virtual int spinOnce(){
 
         /* restart if timed out */
         uint32_t c_time = hardware_.time();
-        if( (c_time - last_sync_receive_time) > (SYNC_SECONDS*2200) ){
-            configured_ = false;
-         }
+
+        if( (c_time - last_sync_receive_time) > (SYNC_SECONDS*2200) )
+          configured_ = false;
+
 
         /* reset if message has timed out */
-        if ( mode_ != MODE_FIRST_FF){
-          if (c_time > last_msg_timeout_time){
+        if ( mode_ != MODE_FIRST_FF) {
+          if (c_time > last_msg_timeout_time)
             mode_ = MODE_FIRST_FF;
-          }
         }
 
         /* while available buffer, read data */
-        while( true )
-        {
+        while(true) {
+
           int data = hardware_.read();
+
           if( data < 0 )
             break;
-          data = data & 0xff;
+
+          data = data & 0xff; // Chop data to get least significant byte
           checksum_ += data;
-          if( mode_ == MODE_MESSAGE ){        /* message data being recieved */
+
+          if( mode_ == MODE_MESSAGE ) {        /* message data being recieved */
             message_in[index_++] = data;
             bytes_--;
+
             if(bytes_ == 0)                  /* is message complete? if so, checksum */
               mode_ = MODE_MSG_CHECKSUM;
-          }else if( mode_ == MODE_FIRST_FF ){
-            if(data == 0xff){
+          }
+
+          else if( mode_ == MODE_FIRST_FF ) {
+            if(data == 0xff) {
               mode_++;
               last_msg_timeout_time = c_time + MSG_TIMEOUT;
             }
-            else if( hardware_.time() - c_time > (SYNC_SECONDS)){
+            else if( hardware_.time() - c_time > (SYNC_SECONDS)) {
               /* We have been stuck in spinOnce too long, return error */
               configured_=false;
               return -2;
             }
-          }else if( mode_ == MODE_PROTOCOL_VER ){
-            if(data == PROTOCOL_VER){
+          }
+
+          else if( mode_ == MODE_PROTOCOL_VER ) {
+            if(data == PROTOCOL_VER) {
               mode_++;
-            }else{
+            }
+            else {
               mode_ = MODE_FIRST_FF;
               if (configured_ == false)
                   requestSyncTime(); 	/* send a msg back showing our protocol version */
             }
-	  }else if( mode_ == MODE_SIZE_L ){   /* bottom half of message size */
+
+          }
+
+          else if( mode_ == MODE_SIZE_L ) {   /* bottom half of message size */
             bytes_ = data;
             index_ = 0;
             mode_++;
             checksum_ = data;               /* first byte for calculating size checksum */
-          }else if( mode_ == MODE_SIZE_H ){   /* top half of message size */
+          }
+
+          else if( mode_ == MODE_SIZE_H ) {   /* top half of message size */
             bytes_ += data<<8;
-	    mode_++;
-          }else if( mode_ == MODE_SIZE_CHECKSUM ){
+            mode_++;
+          }
+
+          else if( mode_ == MODE_SIZE_CHECKSUM ) {
             if( (checksum_%256) == 255)
-	      mode_++;
-	    else
-	      mode_ = MODE_FIRST_FF;          /* Abandon the frame if the msg len is wrong */
-	  }else if( mode_ == MODE_TOPIC_L ){  /* bottom half of topic id */
+              mode_++;
+            else
+              mode_ = MODE_FIRST_FF;          /* Abandon the frame if the msg len is wrong */
+          }
+
+          else if( mode_ == MODE_TOPIC_L ) {  /* bottom half of topic id */
             topic_ = data;
             mode_++;
             checksum_ = data;               /* first byte included in checksum */
-          }else if( mode_ == MODE_TOPIC_H ){  /* top half of topic id */
+          }
+
+          else if( mode_ == MODE_TOPIC_H ) {  /* top half of topic id */
             topic_ += data<<8;
             mode_ = MODE_MESSAGE;
             if(bytes_ == 0)
               mode_ = MODE_MSG_CHECKSUM;
-          }else if( mode_ == MODE_MSG_CHECKSUM ){ /* do checksum */
+          }
+
+          else if( mode_ == MODE_MSG_CHECKSUM ) { /* do checksum */
             mode_ = MODE_FIRST_FF;
-            if( (checksum_%256) == 255){
-              if(topic_ == TopicInfo::ID_PUBLISHER){
+
+            if( (checksum_%256) == 255) {
+
+              if(topic_ == TopicInfo::ID_PUBLISHER) {
                 requestSyncTime();
                 negotiateTopics();
                 last_sync_time = c_time;
                 last_sync_receive_time = c_time;
                 return -1;
-              }else if(topic_ == TopicInfo::ID_TIME){
+              }
+              else if(topic_ == TopicInfo::ID_TIME) {
                 syncTime(message_in);
-              }else if (topic_ == TopicInfo::ID_PARAMETER_REQUEST){
-                  req_param_resp.deserialize(message_in);
-                  param_recieved= true;
-              }else if(topic_ == TopicInfo::ID_TX_STOP){
-                  configured_ = false;
-              }else{
+              }
+              else if (topic_ == TopicInfo::ID_PARAMETER_REQUEST) {
+                req_param_resp.deserialize(message_in);
+                param_recieved= true;
+              }
+              else if(topic_ == TopicInfo::ID_TX_STOP) {
+                configured_ = false;
+              }
+              else {
                 if(subscribers[topic_-100])
                   subscribers[topic_-100]->callback( message_in );
               }
@@ -274,7 +301,7 @@ namespace ros {
         }
 
         /* occasionally sync time */
-        if( configured_ && ((c_time-last_sync_time) > (SYNC_SECONDS*500) )){
+        if( configured_ && ((c_time-last_sync_time) > (SYNC_SECONDS*500) )) {
           requestSyncTime();
           last_sync_time = c_time;
         }
@@ -292,15 +319,13 @@ namespace ros {
        * Time functions
        */
 
-      void requestSyncTime()
-      {
+      void requestSyncTime() {
         std_msgs::Time t;
         publish(TopicInfo::ID_TIME, &t);
         rt_time = hardware_.time();
       }
 
-      void syncTime(uint8_t * data)
-      {
+      void syncTime(uint8_t * data) {
         std_msgs::Time t;
         uint32_t offset = hardware_.time() - rt_time;
 
@@ -312,8 +337,7 @@ namespace ros {
         last_sync_receive_time = hardware_.time();
       }
 
-      Time now()
-      {
+      Time now() {
         uint32_t ms = hardware_.time();
         Time current_time;
         current_time.sec = ms/1000 + sec_offset;
@@ -322,8 +346,7 @@ namespace ros {
         return current_time;
       }
 
-      void setNow( Time & new_now )
-      {
+      void setNow( Time & new_now ) {
         uint32_t ms = hardware_.time();
         sec_offset = new_now.sec - ms/1000 - 1;
         nsec_offset = new_now.nsec - (ms%1000)*1000000UL + 1000000000UL;
@@ -335,9 +358,8 @@ namespace ros {
        */
 
       /* Register a new publisher */
-      bool advertise(Publisher & p)
-      {
-        for(int i = 0; i < MAX_PUBLISHERS; i++){
+      bool advertise(Publisher & p) {
+        for(int i = 0; i < MAX_PUBLISHERS; i++) {
           if(publishers[i] == 0){ // empty slot
             publishers[i] = &p;
             p.id_ = i+100+MAX_SUBSCRIBERS;
@@ -351,7 +373,7 @@ namespace ros {
       /* Register a new subscriber */
       template<typename SubscriberT>
       bool subscribe(SubscriberT& s){
-        for(int i = 0; i < MAX_SUBSCRIBERS; i++){
+        for(int i = 0; i < MAX_SUBSCRIBERS; i++) {
           if(subscribers[i] == 0){ // empty slot
             subscribers[i] = static_cast<Subscriber_*>(&s);
             s.id_ = i+100;
@@ -363,7 +385,7 @@ namespace ros {
 
       /* Register a new Service Server */
       template<typename MReq, typename MRes>
-      bool advertiseService(ServiceServer<MReq,MRes>& srv){
+      bool advertiseService(ServiceServer<MReq,MRes>& srv) {
         bool v = advertise(srv.pub);
         for(int i = 0; i < MAX_SUBSCRIBERS; i++){
           if(subscribers[i] == 0){ // empty slot
@@ -377,7 +399,7 @@ namespace ros {
 
       /* Register a new Service Client */
       template<typename MReq, typename MRes>
-      bool serviceClient(ServiceClient<MReq, MRes>& srv){
+      bool serviceClient(ServiceClient<MReq, MRes>& srv) {
         bool v = advertise(srv.pub);
         for(int i = 0; i < MAX_SUBSCRIBERS; i++){
           if(subscribers[i] == 0){ // empty slot
@@ -389,14 +411,11 @@ namespace ros {
         return false;
       }
 
-      void negotiateTopics()
-      {
+      void negotiateTopics() {
         rosserial_msgs::TopicInfo ti;
         int i;
-        for(i = 0; i < MAX_PUBLISHERS; i++)
-        {
-          if(publishers[i] != 0) // non-empty slot
-          {
+        for(i = 0; i < MAX_PUBLISHERS; i++) {
+          if(publishers[i] != 0) { 								// non-empty slot
             ti.topic_id = publishers[i]->id_;
             ti.topic_name = (char *) publishers[i]->topic_;
             ti.message_type = (char *) publishers[i]->msg_->getType();
@@ -405,8 +424,7 @@ namespace ros {
             publish( publishers[i]->getEndpointType(), &ti );
           }
         }
-        for(i = 0; i < MAX_SUBSCRIBERS; i++)
-        {
+        for(i = 0; i < MAX_SUBSCRIBERS; i++) {
           if(subscribers[i] != 0) // non-empty slot
           {
             ti.topic_id = subscribers[i]->id_;
@@ -420,11 +438,10 @@ namespace ros {
         configured_ = true;
       }
 
-      virtual int publish(int id, const Msg * msg)
-      {
-        if(id >= 100 && !configured_)
-	  return 0;
+      virtual int publish(int id, const Msg * msg) {
 
+        if(id >= 100 && !configured_)
+          return 0;
         /* serialize message */
         uint16_t l = msg->serialize(message_out+7);
 
@@ -441,13 +458,15 @@ namespace ros {
         int chk = 0;
         for(int i =5; i<l+7; i++)
           chk += message_out[i];
+
         l += 7;
         message_out[l++] = 255 - (chk%256);
 
-        if( l <= OUTPUT_SIZE ){
+        if( l <= OUTPUT_SIZE ) {
           hardware_.write(message_out, l);
           return l;
-        }else{
+        }
+        else {
           logerror("Message from device dropped: message larger than buffer.");
           return -1;
         }
@@ -458,7 +477,7 @@ namespace ros {
        */
 
     private:
-      void log(char byte, const char * msg){
+      void log(char byte, const char * msg) {
         rosserial_msgs::Log l;
         l.level= byte;
         l.msg = (char*)msg;
@@ -466,19 +485,23 @@ namespace ros {
       }
 
     public:
-      void logdebug(const char* msg){
+      void logdebug(const char* msg) {
         log(rosserial_msgs::Log::ROSDEBUG, msg);
       }
-      void loginfo(const char * msg){
+
+      void loginfo(const char * msg) {
         log(rosserial_msgs::Log::INFO, msg);
       }
-      void logwarn(const char *msg){
+
+      void logwarn(const char *msg) {
         log(rosserial_msgs::Log::WARN, msg);
       }
-      void logerror(const char*msg){
+
+      void logerror(const char*msg) {
         log(rosserial_msgs::Log::ERROR, msg);
       }
-      void logfatal(const char*msg){
+
+      void logfatal(const char*msg) {
         log(rosserial_msgs::Log::FATAL, msg);
       }
 
@@ -490,23 +513,24 @@ namespace ros {
       bool param_recieved;
       rosserial_msgs::RequestParamResponse req_param_resp;
 
-      bool requestParam(const char * name, int time_out =  1000){
+      bool requestParam(const char * name, int time_out =  1000) {
         param_recieved = false;
         rosserial_msgs::RequestParamRequest req;
         req.name  = (char*)name;
         publish(TopicInfo::ID_PARAMETER_REQUEST, &req);
         uint16_t end_time = hardware_.time() + time_out;
-        while(!param_recieved ){
+        while(!param_recieved ) {
           spinOnce();
-          if (hardware_.time() > end_time) return false;
+          if (hardware_.time() > end_time)
+            return false;
         }
         return true;
       }
 
     public:
-      bool getParam(const char* name, int* param, int length =1){
-        if (requestParam(name) ){
-          if (length == req_param_resp.ints_length){
+      bool getParam(const char* name, int* param, int length =1) {
+        if (requestParam(name)) {
+          if (length == req_param_resp.ints_length) {
             //copy it over
             for(int i=0; i<length; i++)
               param[i] = req_param_resp.ints[i];
@@ -515,8 +539,8 @@ namespace ros {
         }
         return false;
       }
-      bool getParam(const char* name, float* param, int length=1){
-        if (requestParam(name) ){
+      bool getParam(const char* name, float* param, int length=1) {
+        if (requestParam(name) ) {
           if (length == req_param_resp.floats_length){
             //copy it over
             for(int i=0; i<length; i++)
@@ -526,9 +550,9 @@ namespace ros {
         }
         return false;
       }
-      bool getParam(const char* name, char** param, int length=1){
-        if (requestParam(name) ){
-          if (length == req_param_resp.strings_length){
+      bool getParam(const char* name, char** param, int length=1) {
+        if (requestParam(name) ) {
+          if (length == req_param_resp.strings_length) {
             //copy it over
             for(int i=0; i<length; i++)
               strcpy(param[i],req_param_resp.strings[i]);

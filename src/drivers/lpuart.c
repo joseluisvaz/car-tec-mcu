@@ -10,17 +10,14 @@
 
 #if (defined(MCU_S32K142) || defined(MCU_S32K144) || defined(MCU_S32K146) || defined(MCU_S32K148))
 
-/* Initialize LPUART, baud rate= 19200, 1 stop bit, 8 bit format, no parity*/
-void LPUART_Init(uint8_t ip_index,LPUART_Type * base)
-{
+
+void LPUART_Init(uint8_t ip_index,LPUART_Type * base) {
     PCC->PCCn[ip_index] &= ~PCC_PCCn_CGC_MASK;    /* Ensure clk disabled for config */
     PCC->PCCn[ip_index] |= PCC_PCCn_PCS(0b001)    /* Clock Src= 1 (SOSCDIV2_CLK) */
                         |  PCC_PCCn_CGC_MASK;     /* Enable clock for LPUART regs */
 
-
-
-    base->BAUD&=~LPUART_BAUD_SBR_MASK;
-    base->BAUD|= 9;    /* For 19200 baud: baud divisor=8M/19200/16 = ~26 */
+    base->BAUD &= ~LPUART_BAUD_SBR_MASK;
+    base->BAUD |= 9;    /* For 19200 baud: baud divisor=8M/19200/16 = ~26 */
     					/* For 57600 baud: baud divisor = ~9 */
     /* SBR=26 */
     /* OSR=16 */
@@ -40,28 +37,21 @@ void LPUART_Init(uint8_t ip_index,LPUART_Type * base)
 }
 
 
-void LPUART_Send(LPUART_Type * base, uint8_t data)
-{
-    while((base->STAT & LPUART_STAT_TDRE_MASK)>>LPUART_STAT_TDRE_SHIFT==0); /* Wait for transmit buffer to be empty */
-    //uint16_t swapped = data << 8;
-    base->DATA=data;                      								  	/* Send data */
+void LPUART_Send(LPUART_Type * base, uint8_t data) {
+    while(( (base->STAT & LPUART_STAT_TDRE_MASK) >> LPUART_STAT_TDRE_SHIFT ) == 0);   /* Wait for transmit buffer to be empty */
+    base->DATA=data;
 }
 
-int16_t LPUART_Receive(void)
-{
-	uint32_t receive;
-	/*Read byte of data. Send -1 when empty*/
-	if (LPUART1->STAT & LPUART_STAT_OR_MASK) {
-		LPUART1->STAT |= LPUART_STAT_OR_MASK;
-	}
-	if (LPUART1->STAT & LPUART_STAT_RDRF_MASK) {
-		receive = LPUART1->DATA;
-	}
-	else {
-		receive = -1;
-	}
+int16_t LPUART_Receive(void) {
+	// Quick fix to clean overrun flag
+	// TODO Fix this a better way
+	if (LPUART1->STAT & LPUART_STAT_OR_MASK)
+	  LPUART1->STAT |= LPUART_STAT_OR_MASK;
 
-	return receive;
+	if (LPUART1->STAT & LPUART_STAT_RDRF_MASK)
+	  return LPUART1->DATA;
+	else
+	  return -1;
 }
 
 #endif

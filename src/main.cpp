@@ -68,7 +68,7 @@ void callback(const std_msgs::Float32MultiArray &msg) {
 
 }
 
-void init_led(void){
+void init_led(void) {
   PCC->PCCn[PCC_PORTE_INDEX] = PCC_PCCn_CGC(1);
   PORTE->PCR[22] = PORT_PCR_MUX(0b001);	//Port E23: MUX = GPIO
   PTE->PDDR |= 0b1<<22;					//PortE 21-23: Data direction = output
